@@ -513,6 +513,17 @@ var DockingManager = (function() {
             return;
         }
 
+        windows.forEach(function(wElem) {
+            if (wElem.group) {
+                wElem.group.children.forEach(function(wInGroup) {
+                    if (wInGroup.name === window.name) {
+                        console.warn("Window already in a group during register", window.name);
+                        wInGroup.leaveGroup();
+                    }
+                });
+            } 
+        });
+
         windows.push(window);
         window.onMove = this.onWindowMove;
         window.onMoveComplete = this.dockAllSnappedWindows;
