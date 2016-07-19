@@ -29,7 +29,7 @@ The intention of this repo is to provide developers a general (yet uniform) appr
 
 # How to use
 
-## From main window
+## From Main Window
 
 1. Add DockingManager.js in your project
 2. Create new instance of DockingManager, like ```var dockingManager = new DockingManager();```
