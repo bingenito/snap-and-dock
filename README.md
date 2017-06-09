@@ -1,4 +1,4 @@
-#Dock / Snap Example by OpenFin
+# Dock / Snap Example by OpenFin
 
 ## Snap and Dock Approach
 The intention of this repo is to provide developers a general (yet uniform) approach to snapping and docking windows within their apps while utilizing OpenFin. By design, the approach is generic and not intended to solve specific application use cases. Many applications and application developers have varying opinions as to the behavior of window snapping and docking. Our thought here is to provide a framework for those app developers to have as a guide, but provide the flexibility and optionality to solve for their own unique use cases. 
