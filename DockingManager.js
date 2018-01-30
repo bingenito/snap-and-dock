@@ -137,6 +137,7 @@ var DockableWindow = (function(_super) {
     DockableWindow.prototype.onReady = function() {};
     DockableWindow.prototype.onMove = function() {};
     DockableWindow.prototype.onClose = function() {};
+    DockableWindow.prototype.onFocus = function() {};
     DockableWindow.prototype.onMoveComplete = function() {};
     DockableWindow.prototype.onMinimize = function() {};
     DockableWindow.prototype.onRestore = function() {};
@@ -149,6 +150,7 @@ var DockableWindow = (function(_super) {
         this.onBounds = this.onBounds.bind(this);
         this.onBoundsChanging = this.onBoundsChanging.bind(this);
         this.onClosed = this.onClosed.bind(this);
+        this.onFocused = this.onFocused.bind(this);
         this.onMoveComplete = this.onMoved.bind(this);
         this.onBoundsChanged = this.onBoundsChanged.bind(this);
         this.onBoundsUpdate = this.onBoundsUpdate.bind(this);
@@ -191,6 +193,7 @@ var DockableWindow = (function(_super) {
         this.openfinWindow.addEventListener('hidden', this.onMinimized);
         this.openfinWindow.addEventListener('restored', this.onRestored);
         this.openfinWindow.addEventListener('shown', this.onRestored);
+        this.openfinWindow.addEventListener('focused', this.onFocused);
 
         fin.desktop.InterApplicationBus.subscribe('*', 'window-load', this.onLoad);
     };
@@ -250,6 +253,11 @@ var DockableWindow = (function(_super) {
             target: this
         });
         //this.unlink();
+    };
+
+    DockableWindow.prototype.onFocused = function() {
+
+        this.onFocus(this);
     };
 
     DockableWindow.prototype.onMinimized = function() {
@@ -517,6 +525,7 @@ var DockingManager = (function() {
         window.onMove = this.onWindowMove;
         window.onMoveComplete = this.dockAllSnappedWindows;
         window.onClose = this.onWindowClose;
+        window.onFocus = this.onWindowFocus;
         window.onRestore = this.onWindowRestore;
         window.onMinimize = this.onWindowMinimize;
     };
@@ -560,6 +569,17 @@ var DockingManager = (function() {
     DockingManager.prototype.onWindowClose = function(event) {
 
         this.unregister(event.target);
+    };
+
+    DockingManager.prototype.onWindowFocus = function(dockingWindow) {
+
+        var dockingGroup = dockingWindow.group;
+        if (!dockingGroup) return;
+
+        for (var i = 0; i < dockingGroup.children.length; i++){
+
+            dockingGroup.children[i].openfinWindow.bringToFront();
+        }
     };
 
     DockingManager.prototype.onWindowRestore = function() {
