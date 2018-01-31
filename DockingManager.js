@@ -183,6 +183,7 @@ var DockableWindow = (function(_super) {
 
     DockableWindow.prototype.onWindowCreated = function() {
 
+        // OpenFin window close triggers a 'hidden' event, so do not tie minimize action to this event
         this.openfinWindow.getBounds(this.onBounds);
         this.openfinWindow.disableFrame();
         this.openfinWindow.addEventListener('disabled-frame-bounds-changing', this.onBoundsChanging);
@@ -190,7 +191,6 @@ var DockableWindow = (function(_super) {
         this.openfinWindow.addEventListener('bounds-changed', this.onBoundsUpdate);
         this.openfinWindow.addEventListener('closed', this.onClosed);
         this.openfinWindow.addEventListener('minimized', this.onMinimized);
-        this.openfinWindow.addEventListener('hidden', this.onMinimized);
         this.openfinWindow.addEventListener('restored', this.onRestored);
         this.openfinWindow.addEventListener('shown', this.onRestored);
         this.openfinWindow.addEventListener('focused', this.onFocused);
