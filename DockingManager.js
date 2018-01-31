@@ -531,28 +531,20 @@ var DockingManager = (function() {
     };
 
     DockingManager.prototype.unregister = function(window) {
-
-        if(!(window instanceof DockableWindow)){
-            window = this._getWindowByOpenfinWindow(window);
-        }
-
-        var index = windows.indexOf(window);
-
-        if (index >= 0) {
-
-            windows.splice(index, 1);
-        }
+        this.unregisterByName(window.name)
     };
 
-    DockingManager.prototype._getWindowByOpenfinWindow = function(openfinWindow){
+    DockingManager.prototype.unregisterByName = function(windowName) {
 
         for(var i = 0; i < windows.length; i++){
 
-            if(windows[i].openfinWindow == openfinWindow) return windows[i];
+            if (windows[i].name === windowName) {
+                var removedDockableWindow = windows.splice(i, 1)[0];
+                // purge from DockableGroup etc., otherwise it will still influence other DockableWindows
+                removedDockableWindow.leaveGroup();
+            }
         }
-
-        return null;
-    }
+    };
 
     DockingManager.prototype.onVisibilityChanged = function() {
 
