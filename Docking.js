@@ -9,6 +9,15 @@ window.addEventListener('DOMContentLoaded', function() {
     fin.desktop.main(function() {
 
         var dockingManager = DockingManager.getInstance();
+
+        // Apply init() to the DockingManager singleton as below
+        // if you want to modify the docking parameters
+        //
+        // dockingManager.init({
+        //     spacing: 0,
+        //     range: 10
+        // });
+
         dockingManager.register(fin.desktop.Window.getCurrent(), false);
         var counter = 0;
 
@@ -45,6 +54,15 @@ window.addEventListener('DOMContentLoaded', function() {
             var javaWindow = fin.desktop.Window.wrap(appUuid, name);
             dockingManager.register(javaWindow);
         });
+
+        fin.desktop.InterApplicationBus.subscribe('*', 'window-docked', function(message) {
+            console.log('Window ' + message.windowName + ' joined group');
+        });
+
+        fin.desktop.InterApplicationBus.subscribe('*', 'window-undocked', function(message) {
+            console.log('Window ' + message.windowName + ' left group');
+        });
+
         fin.desktop.InterApplicationBus.publish("status-update", {status: 'ready'});
 
     });

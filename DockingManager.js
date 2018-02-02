@@ -5,15 +5,6 @@
  * Created by haseebriaz on 03/03/15.
  */
 
-var __extends = function(d, b) {
-
-    function Construct() {
-        this.constructor = d;
-    }
-    Construct.prototype = b.prototype;
-    d.prototype = new Construct();
-};
-
 var monitors = [];
 function getMonitorInfo(){
 
@@ -30,6 +21,23 @@ function onMonitorInfo(info){
 
         monitor = currentMonitors[i].availableRect;
         monitors.push({x: monitor.left, y: monitor.top, width: monitor.right - monitor.left, height: monitor.bottom - monitor.top});
+    }
+}
+
+function applyOptions(instance, options) {
+
+    if (!options) return;
+
+    // 'range' is the distance between windows at which snapping applies
+    if (!isNaN(Number.parseInt(options.range)) && options.range >= 0) {
+
+        instance.range = options.range;
+    }
+
+    // 'spacing' is the distance between windows when they become docked
+    if (!isNaN(Number.parseInt(options.spacing)) && options.spacing >= 0) {
+
+        instance.spacing = options.spacing;
     }
 }
 
@@ -75,18 +83,13 @@ var DockingGroup = (function() {
     return DockingGroup;
 })();
 
-var DockableWindow = (function(_super) {
+var DockableWindow = (function() {
 
     var _instances = {};
 
-    function DockableWindow(options, onReady) {
+    function DockableWindow(options, dockingOptions) {
 
-        if (onReady) {
-
-            this.onReady = onReady;
-        }
-
-        this.crateDelegates();
+        this.createDelegates();
 
         this.name = options.name;
 
@@ -113,11 +116,11 @@ var DockableWindow = (function(_super) {
             }, this.onWindowCreated);
         }
 
+        applyOptions(this, dockingOptions);
+
         this.currentRange = this.range;
         _instances[this.name] = this;
     }
-
-    //__extends(DockableWindow, _super);
 
     DockableWindow.prototype.name = '';
     DockableWindow.prototype.range = 40;
@@ -134,7 +137,6 @@ var DockableWindow = (function(_super) {
     DockableWindow.prototype.group = null;
     DockableWindow.prototype._moveEvent = {bounds:{}};
 
-    DockableWindow.prototype.onReady = function() {};
     DockableWindow.prototype.onMove = function() {};
     DockableWindow.prototype.onClose = function() {};
     DockableWindow.prototype.onFocus = function() {};
@@ -142,7 +144,7 @@ var DockableWindow = (function(_super) {
     DockableWindow.prototype.onMinimize = function() {};
     DockableWindow.prototype.onRestore = function() {};
 
-    DockableWindow.prototype.crateDelegates = function() {
+    DockableWindow.prototype.createDelegates = function() {
 
         this.onMove = this.onMove.bind(this);
         this.onMoved = this.onMoved.bind(this);
@@ -170,7 +172,6 @@ var DockableWindow = (function(_super) {
         var groupName = localStorage.getItem(this.name);
         console.log(this.name, groupName);
 
-        this.onReady();
         if(groupName){
 
             console.log(this.name, groupName);
@@ -252,7 +253,6 @@ var DockableWindow = (function(_super) {
         this.onClose({
             target: this
         });
-        //this.unlink();
     };
 
     DockableWindow.prototype.onFocused = function() {
@@ -288,10 +288,12 @@ var DockableWindow = (function(_super) {
         this.openfinWindow.addEventListener('disabled-frame-bounds-changing', this.onBoundsChanging);
     };
 
-    function intersact(window1, window2){
+    function intersect(window1, window2){
 
-        return  !(window1.x + window1.width < window2.x || window2.x + window2.width < window1.x
-        || window1.y + window1.height < window2.y || window2.y + window2.height < window1.y)
+        // check right edge position of first window is to the left of left edge of second window, and so on ..
+        // comparison is <= as (xpos + width) is one pixel to the right of the window
+        return  !(window1.x + window1.width <= window2.x || window2.x + window2.width <= window1.x
+        || window1.y + window1.height <= window2.y || window2.y + window2.height <= window1.y)
     }
 
     DockableWindow.prototype.joinGroup = function(group) {
@@ -304,7 +306,7 @@ var DockableWindow = (function(_super) {
         if(group.group){
 
             for(var i = 0; i < group.group.children.length; i++){
-                if(intersact(this, group.group.children[i])) return;
+                if(intersect(this, group.group.children[i])) return;
             }
         }
 
@@ -387,18 +389,13 @@ var DockableWindow = (function(_super) {
         var inView = false;
         for(var i = 0; i < monitors.length; i++){
 
-            if(intersact(this, monitors[i]) && this.y >= monitors[i].y) {
+            if(intersect(this, monitors[i]) && this.y >= monitors[i].y) {
 
                 inView = true;
             }
         }
 
         return inView;
-    };
-
-    DockableWindow.prototype.unlink = function() {
-
-        this.leaveGroup();
     };
 
     DockableWindow.prototype.setOpacity = function(value) {
@@ -476,6 +473,11 @@ var DockingManager = (function() {
     DockingManager.prototype.range = 40;
     DockingManager.prototype.spacing = 5;
 
+    DockingManager.prototype.init = function(dockingOptions) {
+
+        applyOptions(this, dockingOptions);
+    };
+
     DockingManager.prototype.createDelegates = function() {
 
         this.onWindowMove = this.onWindowMove.bind(this);
@@ -510,7 +512,7 @@ var DockingManager = (function() {
 
     DockingManager.prototype.register = function(window, dockableToOthers) {
 
-        window = new DockableWindow(window);
+        window = new DockableWindow(window, { range: this.range });
         window.dockableToOthers = (dockableToOthers === undefined || dockableToOthers !== false);
 
         if (windows.indexOf(window) >= 0) {
