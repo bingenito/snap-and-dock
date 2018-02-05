@@ -130,7 +130,6 @@ var DockableWindow = (function() {
     DockableWindow.prototype.width = 0;
     DockableWindow.prototype.height = 0;
     DockableWindow.prototype.openfinWindow = null;
-    DockableWindow.prototype.isDocked = false;
     DockableWindow.prototype.dockableToOthers = true;
     DockableWindow.prototype.acceptDockingConnection = true;
     DockableWindow.prototype.minimized = false;
@@ -233,7 +232,7 @@ var DockableWindow = (function() {
             return;
         }
 
-        if (!this.isDocked) {
+        if (!this.group) {
             this.setOpacity(0.5);
         }
 
@@ -330,8 +329,6 @@ var DockableWindow = (function() {
         group.openfinWindow.enableFrame();
 
         this.openfinWindow.joinGroup(group.openfinWindow);
-        //this._inviteMemebersToTheGroup(this.group.children, group);
-        this.isDocked = true;
 
         fin.desktop.InterApplicationBus.publish('window-docked', {
 
@@ -350,31 +347,29 @@ var DockableWindow = (function() {
     DockableWindow.prototype.leaveGroup = function() {
 
         var group = this.group;
-
-        this.openfinWindow.disableFrame();
-
-        if (group) {
-
-            group.remove(this);
+        if (!group) {
+            return;
         }
 
+        // detach window from OpenFin runtime group
+        this.openfinWindow.disableFrame();
         this.openfinWindow.leaveGroup();
-        //this._inviteMemebersToTheGroup(this.children, this);
 
-        this.isDocked = false;
+        group.remove(this);
 
         fin.desktop.InterApplicationBus.publish('window-undocked', {
 
             windowName: this.name
         });
 
-        if(group && group.children.length === 1) {
+        if(!this.isInView()) {
+            this.moveTo(0, 0, this.width, this.height);
+        }
+
+        if (group.children.length === 1) {
 
             group.children[0].leaveGroup();
         }
-
-
-        if(!this.isInView()) this.moveTo(0, 0, this.width, this.height);
 
         if(group.children.length && !this.isGroupInView(group)){
 
@@ -386,16 +381,15 @@ var DockableWindow = (function() {
 
     DockableWindow.prototype.isInView = function(){
 
-        var inView = false;
-        for(var i = 0; i < monitors.length; i++){
+        for (var i = 0; i < monitors.length; i++){
 
-            if(intersect(this, monitors[i]) && this.y >= monitors[i].y) {
+            if (intersect(this, monitors[i]) && this.y >= monitors[i].y) {
 
-                inView = true;
+                return true;
             }
         }
 
-        return inView;
+        return false;
     };
 
     DockableWindow.prototype.setOpacity = function(value) {
