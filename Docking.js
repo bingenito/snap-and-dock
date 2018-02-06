@@ -15,7 +15,9 @@ window.addEventListener('DOMContentLoaded', function() {
         //
         // dockingManager.init({
         //     spacing: 0,
-        //     range: 10
+        //     range: 10,
+        //     undockOffsetX: 15,
+        //     undockOffsetY: 15
         // });
 
         dockingManager.register(fin.desktop.Window.getCurrent(), false);

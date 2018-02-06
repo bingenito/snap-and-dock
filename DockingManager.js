@@ -39,6 +39,14 @@ function applyOptions(instance, options) {
 
         instance.spacing = options.spacing;
     }
+
+    // 'undockOffsetX/Y' are offset values - they make the undocked window 'jump' a number of pixels
+    if (!isNaN(Number.parseInt(options.undockOffsetX)) && options.undockOffsetX >= 0) {
+        instance.undockOffsetX = options.undockOffsetX;
+    }
+    if (!isNaN(Number.parseInt(options.undockOffsetY)) && options.undockOffsetY >= 0) {
+        instance.undockOffsetY = options.undockOffsetY;
+    }
 }
 
 var DockingGroup = (function() {
@@ -129,6 +137,8 @@ var DockableWindow = (function() {
     DockableWindow.prototype.y = 0;
     DockableWindow.prototype.width = 0;
     DockableWindow.prototype.height = 0;
+    DockableWindow.prototype.undockOffsetX = 0;
+    DockableWindow.prototype.undockOffsetY = 0;
     DockableWindow.prototype.openfinWindow = null;
     DockableWindow.prototype.dockableToOthers = true;
     DockableWindow.prototype.acceptDockingConnection = true;
@@ -344,7 +354,7 @@ var DockableWindow = (function() {
         console.log(this.name, localStorage.getItem(this.name));
     };
 
-    DockableWindow.prototype.leaveGroup = function() {
+    DockableWindow.prototype.leaveGroup = function(isInitiator) {
 
         var group = this.group;
         if (!group) {
@@ -362,7 +372,12 @@ var DockableWindow = (function() {
             windowName: this.name
         });
 
-        if(!this.isInView()) {
+        if (isInitiator) {
+            // if this window initiated the undock procedure, move apart slightly from group
+            this.openfinWindow.moveBy(this.undockOffsetX, this.undockOffsetY);
+        }
+        else if (!this.isInView()) {
+            // if indirectly undocked e.g. last window in group
             this.moveTo(0, 0, this.width, this.height);
         }
 
@@ -453,7 +468,9 @@ var DockingManager = (function() {
 
         instance = this;
         this.createDelegates();
-        fin.desktop.InterApplicationBus.subscribe('*', 'undock-window', this.onUndock);
+        fin.desktop.InterApplicationBus.subscribe('*', 'undock-window', function(message) {
+            instance.undockWindow(message.windowName);
+        });
         window.document.addEventListener('visibilitychange', this.onVisibilityChanged);
 
         getMonitorInfo();
@@ -466,6 +483,8 @@ var DockingManager = (function() {
 
     DockingManager.prototype.range = 40;
     DockingManager.prototype.spacing = 5;
+    DockingManager.prototype.undockOffsetX = 0;
+    DockingManager.prototype.undockOffsetY = 0;
 
     DockingManager.prototype.init = function(dockingOptions) {
 
@@ -479,20 +498,16 @@ var DockingManager = (function() {
         this.onWindowRestore = this.onWindowRestore.bind(this);
         this.onWindowMinimize = this.onWindowMinimize.bind(this);
         this.dockAllSnappedWindows = this.dockAllSnappedWindows.bind(this);
-        this.onUndock = this.onUndock.bind(this);
         this.onVisibilityChanged = this.onVisibilityChanged.bind(this);
     };
 
-    DockingManager.prototype.onUndock = function(message) {
-
-
-        var name = message.windowName;
+    DockingManager.prototype.undockWindow = function(windowName) {
 
         for (var i = 0; i < windows.length; i++) {
 
-            if (windows[i].name === name) {
+            if (windows[i].name === windowName) {
 
-                windows[i].leaveGroup();
+                windows[i].leaveGroup(true);
             }
         }
     };
@@ -506,7 +521,11 @@ var DockingManager = (function() {
 
     DockingManager.prototype.register = function(window, dockableToOthers) {
 
-        window = new DockableWindow(window, { range: this.range });
+        window = new DockableWindow(window, {
+            range: this.range,
+            undockOffsetX: this.undockOffsetX,
+            undockOffsetY: this.undockOffsetY
+        });
         window.dockableToOthers = (dockableToOthers === undefined || dockableToOthers !== false);
 
         if (windows.indexOf(window) >= 0) {
