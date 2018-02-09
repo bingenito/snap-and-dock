@@ -93,7 +93,26 @@ var DockingGroup = (function() {
 
 var DockableWindow = (function() {
 
-    var _instances = {};
+    var openDockableWindows = {};
+
+    var DOCKING_MANAGER_NAMESPACE_PREFIX = 'dockingManager.';
+    function getFullStorageKey(id) {
+        return DOCKING_MANAGER_NAMESPACE_PREFIX +
+            fin.desktop.Application.getCurrent().uuid +
+            '.' + id;
+    }
+
+    function readStorage(key) {
+        return localStorage.getItem(getFullStorageKey(key));
+    }
+
+    function writeStorage(key, value) {
+        localStorage.setItem(getFullStorageKey(key), value);
+    }
+
+    function removeStorage(key) {
+        localStorage.removeItem(getFullStorageKey(key));
+    }
 
     function DockableWindow(options, dockingOptions) {
 
@@ -127,7 +146,7 @@ var DockableWindow = (function() {
         applyOptions(this, dockingOptions);
 
         this.currentRange = this.range;
-        _instances[this.name] = this;
+        openDockableWindows[this.name] = this;
     }
 
     DockableWindow.prototype.name = '';
@@ -172,22 +191,27 @@ var DockableWindow = (function() {
 
     DockableWindow.prototype.onLoad = function(message) {
 
+        console.warn('win onload')
+
         if (message.windowName !== this.name) {
-           return;
+            return;
         }
 
         fin.desktop.InterApplicationBus.unsubscribe('*', 'window-load', this.onLoad);
 
-        var groupName = localStorage.getItem(this.name);
-        console.log(this.name, groupName);
+        var groupName = readStorage(this.name);
+        if (!groupName) {
+            return;
+        }
 
-        if(groupName){
+        var groupedDockableWindow = openDockableWindows[groupName];
+        if (!groupedDockableWindow) {
+            return;
+        }
 
-            console.log(this.name, groupName);
-            var win = _instances[groupName];
-            if(DockingManager.getInstance().isSnapable(this, win) || DockingManager.getInstance().isSnapable(win, this)) {
-                this.joinGroup(_instances[groupName]);
-            }
+        if (DockingManager.getInstance().isSnapable(this, groupedDockableWindow) ||
+            DockingManager.getInstance().isSnapable(groupedDockableWindow, this)) {
+            this.joinGroup(groupedDockableWindow);
         }
     };
 
@@ -350,8 +374,7 @@ var DockableWindow = (function() {
             windowName: group.name
         });
 
-        localStorage.setItem(this.name, group.name);
-        console.log(this.name, localStorage.getItem(this.name));
+        writeStorage(this.name, group.name);
     };
 
     DockableWindow.prototype.leaveGroup = function(isInitiator) {
@@ -391,7 +414,7 @@ var DockableWindow = (function() {
             group.children[0].moveTo(0, 0);
         }
 
-        localStorage.removeItem(this.name);
+        removeStorage(this.name);
     };
 
     DockableWindow.prototype.isInView = function(){
