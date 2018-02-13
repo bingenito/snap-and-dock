@@ -102,16 +102,54 @@ var DockableWindow = (function() {
             '.' + id;
     }
 
-    function readStorage(key) {
-        return localStorage.getItem(getFullStorageKey(key));
+    function retrieveRelationshipsFor(id) {
+        return JSON.parse(localStorage.getItem(getFullStorageKey(id)));
     }
 
-    function writeStorage(key, value) {
-        localStorage.setItem(getFullStorageKey(key), value);
+    function createRelationship(id1, id2) {
+        var partners = retrieveRelationshipsFor(id1) || [];
+        if (partners.indexOf(id2) !== -1) {
+            return;
+        }
+        partners.push(id2);
+        localStorage.setItem(getFullStorageKey(id1), JSON.stringify(partners));
     }
 
-    function removeStorage(key) {
-        localStorage.removeItem(getFullStorageKey(key));
+    function createRelationshipsBetween(id1, id2) {
+        createRelationship(id1, id2);
+        createRelationship(id2, id1);
+    }
+
+    function removeRelationshipBetween(id1, id2) {
+        var currentPartners = retrieveRelationshipsFor(id1);
+        if (!currentPartners) {
+            return;
+        }
+
+        var partnerIndex = currentPartners.indexOf(id2);
+        if (partnerIndex === -1) {
+            return;
+        }
+
+        currentPartners.splice(partnerIndex, 1);
+
+        if (currentPartners.length > 0) {
+            localStorage.setItem(getFullStorageKey(id1), JSON.stringify(currentPartners));
+        } else {
+            localStorage.removeItem(getFullStorageKey(id1));
+        }
+    }
+
+    function deleteRelationshipsFor(id) {
+        var currentPartners = retrieveRelationshipsFor(id);
+        if (!currentPartners) {
+            return;
+        }
+        localStorage.removeItem(getFullStorageKey(id));
+
+        for (var i = 0; i < currentPartners.length; i++) {
+            removeRelationshipBetween(currentPartners[i], id);
+        }
     }
 
     function DockableWindow(options, dockingOptions) {
@@ -191,27 +229,32 @@ var DockableWindow = (function() {
 
     DockableWindow.prototype.onLoad = function(message) {
 
-        console.warn('win onload')
-
         if (message.windowName !== this.name) {
             return;
         }
 
         fin.desktop.InterApplicationBus.unsubscribe('*', 'window-load', this.onLoad);
 
-        var groupName = readStorage(this.name);
-        if (!groupName) {
+        var formerDockingPartners = retrieveRelationshipsFor(this.name);
+        if (!formerDockingPartners) {
             return;
         }
 
-        var groupedDockableWindow = openDockableWindows[groupName];
-        if (!groupedDockableWindow) {
-            return;
-        }
+        for (var i = 0; i < formerDockingPartners.length; i++) {
+            var potentialPartnerName = formerDockingPartners[i];
 
-        if (DockingManager.getInstance().isSnapable(this, groupedDockableWindow) ||
-            DockingManager.getInstance().isSnapable(groupedDockableWindow, this)) {
-            this.joinGroup(groupedDockableWindow);
+            var potentialPartnerWindow = openDockableWindows[potentialPartnerName];
+            if (!potentialPartnerWindow ||
+                !DockingManager.getInstance().isSnapable(this, potentialPartnerWindow) &&
+                !DockingManager.getInstance().isSnapable(potentialPartnerWindow, this)) {
+                // garbage collection, essentially
+                // note, if a former partner has not been opened yet, then re-connecting
+                // that pair of windows will be handled by that window's persisted relationships
+                removeRelationshipBetween(this.name, potentialPartnerName);
+                continue;
+            }
+
+            this.joinGroup(potentialPartnerWindow);
         }
     };
 
@@ -329,40 +372,41 @@ var DockableWindow = (function() {
         || window1.y + window1.height <= window2.y || window2.y + window2.height <= window1.y)
     }
 
-    DockableWindow.prototype.joinGroup = function(group) {
+    DockableWindow.prototype.joinGroup = function(snappedPartnerWindow) {
 
-        if(this.group ) return;
-        if (!this.dockableToOthers || !group.acceptDockingConnection) {
+        if (this.group || !this.dockableToOthers || !snappedPartnerWindow.acceptDockingConnection) {
             return;
         }
 
-        if(group.group){
+        if (snappedPartnerWindow.group) {
 
-            for(var i = 0; i < group.group.children.length; i++){
-                if(intersect(this, group.group.children[i])) return;
+            for (var i = 0; i < snappedPartnerWindow.group.children.length; i++) {
+                if (intersect(this, snappedPartnerWindow.group.children[i])) {
+                    return;
+                }
             }
         }
 
-        if(!group.group) {
-            if(this.group){
+        if (!snappedPartnerWindow.group) {
+            if (this.group){
 
-                group.joinGroup(this);
+                snappedPartnerWindow.joinGroup(this);
                 return;
             } else {
 
                 var dockingGroup = new DockingGroup();
-                dockingGroup.add(group);
+                dockingGroup.add(snappedPartnerWindow);
                 dockingGroup.add(this);
             }
         } else {
 
-            group.group.add(this);
+            snappedPartnerWindow.group.add(this);
         }
 
         this.openfinWindow.enableFrame();
-        group.openfinWindow.enableFrame();
+        snappedPartnerWindow.openfinWindow.enableFrame();
 
-        this.openfinWindow.joinGroup(group.openfinWindow);
+        this.openfinWindow.joinGroup(snappedPartnerWindow.openfinWindow);
 
         fin.desktop.InterApplicationBus.publish('window-docked', {
 
@@ -371,10 +415,10 @@ var DockableWindow = (function() {
 
         fin.desktop.InterApplicationBus.publish('window-docked', {
 
-            windowName: group.name
+            windowName: snappedPartnerWindow.name
         });
 
-        writeStorage(this.name, group.name);
+        createRelationshipsBetween(this.name, snappedPartnerWindow.name);
     };
 
     DockableWindow.prototype.leaveGroup = function(isInitiator) {
@@ -414,7 +458,7 @@ var DockableWindow = (function() {
             group.children[0].moveTo(0, 0);
         }
 
-        removeStorage(this.name);
+        deleteRelationshipsFor(this.name);
     };
 
     DockableWindow.prototype.isInView = function(){
