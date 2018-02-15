@@ -25,8 +25,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         function createChildWindow() {
 
-            var dw = new fin.desktop.Window({
-
+            var windowOptions = {
                 name: 'child' + counter++,
                 url: 'childWindow.html',
                 defaultWidth: 200,
@@ -37,14 +36,18 @@ window.addEventListener('DOMContentLoaded', function() {
                 resize: true,
                 windowState: 'normal',
                 autoShow: true
+            };
 
-            }, function() {
+            var dw = new fin.desktop.Window(
+                windowOptions,
+                function() {
+                    dockingManager.register(dw);
+                }
+            );
 
-                dockingManager.register(dw);
-            });
-
-
-            return dw;
+            // To test using DockingWindow to create the OpenFin window
+            //
+            // dockingManager.register(windowOptions);
         }
 
         document.getElementById('createWindows').onclick = createChildWindow;

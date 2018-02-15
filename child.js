@@ -21,14 +21,9 @@ function onDock(message) {
 
 }
 
-function updateDimentions() {
+function updateDimensions(bounds) {
 
-    var win = fin.desktop.Window.getCurrent();
-    win.getBounds(function(bounds) {
-
-        document.getElementById('dimentions').innerHTML = 'x: ' + bounds.left + ', y: ' + bounds.top + ', width: ' + bounds.width + ', height: ' + bounds.height;
-    });
-
+    document.getElementById('dimensions').innerHTML = 'x: ' + bounds.left + ', y: ' + bounds.top + ', width: ' + bounds.width + ', height: ' + bounds.height;
 }
 
 function onUnDock(message) {
@@ -50,7 +45,6 @@ fin.desktop.main(function() {
 
     document.getElementById('title').innerText = window.name;
 
-    setInterval(updateDimentions, 100);
     undockButton = document.getElementById('undockButton');
     undockButton.addEventListener('click', undock);
     enableUndock(false);
@@ -58,9 +52,7 @@ fin.desktop.main(function() {
     fin.desktop.InterApplicationBus.subscribe('*', 'window-docked', onDock);
     fin.desktop.InterApplicationBus.subscribe('*', 'window-undocked', onUnDock);
 
-    fin.desktop.InterApplicationBus.publish('window-load', {
-
-        windowName: window.name
-    });
-
+    var currentWindow = fin.desktop.Window.getCurrent();
+    currentWindow.getBounds(updateDimensions);
+    currentWindow.addEventListener('bounds-changing', updateDimensions);
 });

@@ -103,11 +103,12 @@ var DockableWindow = (function() {
     }
 
     function retrieveRelationshipsFor(id) {
-        return JSON.parse(localStorage.getItem(getFullStorageKey(id)));
+        var storedRelationships = JSON.parse(localStorage.getItem(getFullStorageKey(id)));
+        return storedRelationships || [];
     }
 
     function createRelationship(id1, id2) {
-        var partners = retrieveRelationshipsFor(id1) || [];
+        var partners = retrieveRelationshipsFor(id1);
         if (partners.indexOf(id2) !== -1) {
             return;
         }
@@ -120,12 +121,8 @@ var DockableWindow = (function() {
         createRelationship(id2, id1);
     }
 
-    function removeRelationshipBetween(id1, id2) {
+    function removeRelationship(id1, id2) {
         var currentPartners = retrieveRelationshipsFor(id1);
-        if (!currentPartners) {
-            return;
-        }
-
         var partnerIndex = currentPartners.indexOf(id2);
         if (partnerIndex === -1) {
             return;
@@ -140,46 +137,43 @@ var DockableWindow = (function() {
         }
     }
 
-    function deleteRelationshipsFor(id) {
+    function removeAllRelationships(id) {
+        // grab existing partner windows before removing all trace of this window's persistence
         var currentPartners = retrieveRelationshipsFor(id);
-        if (!currentPartners) {
-            return;
-        }
         localStorage.removeItem(getFullStorageKey(id));
 
+        // remove all 'reverse' relationships from partners too
         for (var i = 0; i < currentPartners.length; i++) {
-            removeRelationshipBetween(currentPartners[i], id);
+            removeRelationship(currentPartners[i], id);
         }
     }
 
-    function DockableWindow(options, dockingOptions) {
+    function DockableWindow(windowOrOptions, dockingOptions) {
 
         this.createDelegates();
 
-        this.name = options.name;
+        this.name = windowOrOptions.name;
 
-        if (options instanceof fin.desktop.Window) {
+        if (windowOrOptions instanceof fin.desktop.Window) {
 
-            this.openfinWindow = options;
-            this.onWindowCreated();
-
+            this.openfinWindow = windowOrOptions;
         } else {
 
-            this.openfinWindow = new fin.desktop.Window({
-
-                name: options.name,
-                url: options.url,
-                defaultLeft: options.defaultLeft - 150,
-                defaultTop: options.defaultTop - 100,
-                defaultWidth: options.defaultWidth,
-                defaultHeight: options.defaultHeight,
-                frame: options.frame,
-                resize: options.resize,
-                windowState: options.windowState,
-                autoShow: options.autoShow
-
-            }, this.onWindowCreated);
+            this.openfinWindow = new fin.desktop.Window(windowOrOptions);
         }
+
+        // OpenFin Window is definitely created now, but may not be fully initialized
+        var dockableWindow = this;
+        dockableWindow.openfinWindow.getInfo(
+            function() {
+                dockableWindow.onWindowInitialized();
+            },
+            function() {
+                dockableWindow.openfinWindow.addEventListener('initialized', function() {
+                    dockableWindow.onWindowInitialized();
+                });
+            }
+        );
 
         applyOptions(this, dockingOptions);
 
@@ -212,9 +206,9 @@ var DockableWindow = (function() {
 
     DockableWindow.prototype.createDelegates = function() {
 
+        this.completeInitialization = this.completeInitialization.bind(this);
         this.onMove = this.onMove.bind(this);
         this.onMoved = this.onMoved.bind(this);
-        this.onWindowCreated = this.onWindowCreated.bind(this);
         this.onBounds = this.onBounds.bind(this);
         this.onBoundsChanging = this.onBoundsChanging.bind(this);
         this.onClosed = this.onClosed.bind(this);
@@ -224,22 +218,28 @@ var DockableWindow = (function() {
         this.onBoundsUpdate = this.onBoundsUpdate.bind(this);
         this.onMinimized = this.onMinimized.bind(this);
         this.onRestored = this.onRestored.bind(this);
-        this.onLoad = this.onLoad.bind(this);
     };
 
-    DockableWindow.prototype.onLoad = function(message) {
+    DockableWindow.prototype.onWindowInitialized = function() {
 
-        if (message.windowName !== this.name) {
-            return;
-        }
+        // OpenFin window close triggers a 'hidden' event, so do not tie minimize action to this event
+        this.openfinWindow.getBounds(this.completeInitialization);
+        this.openfinWindow.disableFrame();
+        this.openfinWindow.addEventListener('disabled-frame-bounds-changing', this.onBoundsChanging);
+        this.openfinWindow.addEventListener('disabled-frame-bounds-changed', this.onBoundsChanged);
+        this.openfinWindow.addEventListener('bounds-changed', this.onBoundsUpdate);
+        this.openfinWindow.addEventListener('closed', this.onClosed);
+        this.openfinWindow.addEventListener('minimized', this.onMinimized);
+        this.openfinWindow.addEventListener('restored', this.onRestored);
+        this.openfinWindow.addEventListener('shown', this.onRestored);
+        this.openfinWindow.addEventListener('focused', this.onFocused);
+    };
 
-        fin.desktop.InterApplicationBus.unsubscribe('*', 'window-load', this.onLoad);
+    DockableWindow.prototype.completeInitialization = function(initialWindowBounds) {
+
+        this.onBounds(initialWindowBounds);
 
         var formerDockingPartners = retrieveRelationshipsFor(this.name);
-        if (!formerDockingPartners) {
-            return;
-        }
-
         for (var i = 0; i < formerDockingPartners.length; i++) {
             var potentialPartnerName = formerDockingPartners[i];
 
@@ -250,29 +250,12 @@ var DockableWindow = (function() {
                 // garbage collection, essentially
                 // note, if a former partner has not been opened yet, then re-connecting
                 // that pair of windows will be handled by that window's persisted relationships
-                removeRelationshipBetween(this.name, potentialPartnerName);
+                removeRelationship(this.name, potentialPartnerName);
                 continue;
             }
 
             this.joinGroup(potentialPartnerWindow);
         }
-    };
-
-    DockableWindow.prototype.onWindowCreated = function() {
-
-        // OpenFin window close triggers a 'hidden' event, so do not tie minimize action to this event
-        this.openfinWindow.getBounds(this.onBounds);
-        this.openfinWindow.disableFrame();
-        this.openfinWindow.addEventListener('disabled-frame-bounds-changing', this.onBoundsChanging);
-        this.openfinWindow.addEventListener('disabled-frame-bounds-changed', this.onBoundsChanged);
-        this.openfinWindow.addEventListener('bounds-changed', this.onBoundsUpdate);
-        this.openfinWindow.addEventListener('closed', this.onClosed);
-        this.openfinWindow.addEventListener('minimized', this.onMinimized);
-        this.openfinWindow.addEventListener('restored', this.onRestored);
-        this.openfinWindow.addEventListener('shown', this.onRestored);
-        this.openfinWindow.addEventListener('focused', this.onFocused);
-
-        fin.desktop.InterApplicationBus.subscribe('*', 'window-load', this.onLoad);
     };
 
     DockableWindow.prototype.onBounds = function(bounds) {
@@ -453,12 +436,12 @@ var DockableWindow = (function() {
             group.children[0].leaveGroup();
         }
 
-        if(group.children.length && !this.isGroupInView(group)){
+        if (group.children.length > 0 && !this.isGroupInView(group)){
 
             group.children[0].moveTo(0, 0);
         }
 
-        deleteRelationshipsFor(this.name);
+        removeAllRelationships(this.name);
     };
 
     DockableWindow.prototype.isInView = function(){
