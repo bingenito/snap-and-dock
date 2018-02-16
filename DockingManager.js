@@ -545,6 +545,7 @@ var DockingManager = (function() {
 
         this.onWindowMove = this.onWindowMove.bind(this);
         this.onWindowClose = this.onWindowClose.bind(this);
+        this.bringWindowOrGroupToFront = this.bringWindowOrGroupToFront.bind(this);
         this.onWindowRestore = this.onWindowRestore.bind(this);
         this.onWindowMinimize = this.onWindowMinimize.bind(this);
         this.dockAllSnappedWindows = this.dockAllSnappedWindows.bind(this);
@@ -587,7 +588,7 @@ var DockingManager = (function() {
         window.onMove = this.onWindowMove;
         window.onMoveComplete = this.dockAllSnappedWindows;
         window.onClose = this.onWindowClose;
-        window.onFocus = this.onWindowFocus;
+        window.onFocus = this.bringWindowOrGroupToFront;
         window.onRestore = this.onWindowRestore;
         window.onMinimize = this.onWindowMinimize;
     };
@@ -625,13 +626,16 @@ var DockingManager = (function() {
         this.unregister(event.target);
     };
 
-    DockingManager.prototype.onWindowFocus = function(dockingWindow) {
+    DockingManager.prototype.bringWindowOrGroupToFront = function(dockingWindow) {
 
         var dockingGroup = dockingWindow.group;
         if (!dockingGroup) {
+            // just bring the single window to front
+            dockingWindow.openfinWindow.bringToFront();
             return;
         }
 
+        // otherwise bring the whole group, including the target window itself, to front
         for (var i = 0; i < dockingGroup.children.length; i++){
 
             dockingGroup.children[i].openfinWindow.bringToFront();
@@ -675,26 +679,27 @@ var DockingManager = (function() {
             return;
         }
 
-        var dWindow = null;
         var position = {
             x: null,
             y: null
         };
 
-        main: for (var i = windows.length - 1; i >= 0; i--) {
+        for (var i = windows.length - 1; i >= 0; i--) {
 
-            dWindow = windows[i];
+            var dockableWindow = windows[i];
 
-            var snappingPosition = this.isSnapable(event.bounds, dWindow);
+            var snappingPosition = this.isSnapable(event.bounds, dockableWindow);
 
             if (!snappingPosition) {
-                snappingPosition = this._reverse(this.isSnapable(dWindow, event.bounds));
+                snappingPosition = this._reverse(this.isSnapable(dockableWindow, event.bounds));
             }
 
             if (snappingPosition) {
 
                 currentWindow.currentRange = currentWindow.range + 10;
-                var pos = this.snapToWindow(event, dWindow, snappingPosition);
+                var pos = this.snapToWindow(event, dockableWindow, snappingPosition);
+
+                this.bringWindowOrGroupToFront(dockableWindow);
 
                 if (!position.x) {
                     position.x = pos.x;
@@ -704,12 +709,12 @@ var DockingManager = (function() {
                     position.y = pos.y;
                 }
 
-                this.addToSnapList(currentWindow, dWindow, snappingPosition);
+                this.addToSnapList(currentWindow, dockableWindow, snappingPosition);
 
             } else {
 
                 currentWindow.currentRange = currentWindow.range;
-                this.removeFromSnapList(currentWindow, dWindow);
+                this.removeFromSnapList(currentWindow, dockableWindow);
             }
         }
 
