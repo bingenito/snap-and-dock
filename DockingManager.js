@@ -572,25 +572,25 @@ var DockingManager = (function() {
 
     DockingManager.prototype.register = function(window, dockableToOthers) {
 
-        window = new DockableWindow(window, {
+        for (var i = 0; i < windows.length; i++) {
+            if (windows[i].name === window.name) {
+                return;
+            }
+        }
+
+        var dockableWindow = new DockableWindow(window, {
             range: this.range,
             undockOffsetX: this.undockOffsetX,
             undockOffsetY: this.undockOffsetY
         });
-        window.dockableToOthers = (dockableToOthers === undefined || dockableToOthers !== false);
-
-        if (windows.indexOf(window) >= 0) {
-
-            return;
-        }
-
-        windows.push(window);
-        window.onMove = this.onWindowMove;
-        window.onMoveComplete = this.dockAllSnappedWindows;
-        window.onClose = this.onWindowClose;
-        window.onFocus = this.bringWindowOrGroupToFront;
-        window.onRestore = this.onWindowRestore;
-        window.onMinimize = this.onWindowMinimize;
+        dockableWindow.dockableToOthers = (dockableToOthers === undefined || dockableToOthers !== false);
+        dockableWindow.onMove = this.onWindowMove;
+        dockableWindow.onMoveComplete = this.dockAllSnappedWindows;
+        dockableWindow.onClose = this.onWindowClose;
+        dockableWindow.onFocus = this.bringWindowOrGroupToFront;
+        dockableWindow.onRestore = this.onWindowRestore;
+        dockableWindow.onMinimize = this.onWindowMinimize;
+        windows.push(dockableWindow);
     };
 
     DockingManager.prototype.unregister = function(window) {
