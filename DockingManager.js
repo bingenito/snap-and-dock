@@ -404,6 +404,71 @@ var DockableWindow = (function() {
         createRelationshipsBetween(this.name, snappedPartnerWindow.name);
     };
 
+    function getWindowByName(windowList, windowName) {
+        for (var i = 0; i < windowList.length; i++) {
+            if (windowList[i].name === windowName) {
+                return windowList[i];
+            }
+        }
+    }
+
+    function regroup(allWindowsToRegroup, previousWindow, currentWindow, isNewGroup) {
+
+        console.info('check if we should process ' + currentWindow.name);
+        var currentWindowIndex = allWindowsToRegroup.indexOf(currentWindow);
+        if (currentWindowIndex === -1) {
+            return; // already traversed
+        }
+
+        // Important, get orig partnerships, before leave/join group destroys them below
+        var partnerWindowNames = retrieveRelationshipsFor(currentWindow.name);
+        console.info('got orig partners for ' + currentWindow.name, partnerWindowNames);
+
+        // remove this window now from pending list, we should not be visiting it again
+        allWindowsToRegroup.splice(currentWindowIndex, 1);
+        if (isNewGroup) {
+            console.info('new group territory .. bye bye, old group!');
+            currentWindow.leaveGroup();
+            if (previousWindow) {
+                console.info('new group territory .. we ain\'t the first, hello new group!');
+                currentWindow.joinGroup(previousWindow);
+            }
+        }
+
+        for (var i = 0; i < partnerWindowNames.length; i++) {
+            console.info('checking partners: ' + partnerWindowNames[i]);
+            var partnerWindow = getWindowByName(allWindowsToRegroup, partnerWindowNames[i]);
+
+            console.info('got partner windwo: ' + partnerWindow);
+
+            if (partnerWindow) {
+                regroup(allWindowsToRegroup, currentWindow, partnerWindow, isNewGroup);
+            }
+        }
+    }
+
+    function checkForSplitGroup(dockingGroup) {
+
+        if (dockingGroup.children.length < 2) {
+            return;
+        }
+
+        var existingDockingGroup = dockingGroup;
+        var windowsToRegroup = existingDockingGroup.children.concat();
+
+        // loop, until no windows left to group ....
+
+        while (windowsToRegroup.length > 0) {
+            var startWindow = windowsToRegroup[0];
+            regroup(windowsToRegroup, null, startWindow, !existingDockingGroup);
+
+            if (existingDockingGroup && startWindow.group) {
+                console.warn('orig group traversed - careful: DG still contains invalid members!', existingDockingGroup.children);
+                existingDockingGroup = null;
+            }
+        }
+    }
+
     DockableWindow.prototype.leaveGroup = function(isInitiator) {
 
         var group = this.group;
@@ -442,6 +507,10 @@ var DockableWindow = (function() {
         }
 
         removeAllRelationships(this.name);
+
+        if (isInitiator) {
+            checkForSplitGroup(group);
+        }
     };
 
     DockableWindow.prototype.isInView = function(){
