@@ -5,6 +5,13 @@
  * Created by haseebriaz on 03/03/15.
  */
 
+var GroupEventReason = {
+    DISBAND: 'disband',
+    JOIN: 'join',
+    LEAVE: 'leave',
+    MERGE: 'merge'
+};
+
 var monitors = [];
 function getMonitorInfo(){
 
@@ -203,6 +210,7 @@ var DockableWindow = (function() {
     DockableWindow.prototype.onMoveComplete = function() {};
     DockableWindow.prototype.onMinimize = function() {};
     DockableWindow.prototype.onRestore = function() {};
+    DockableWindow.prototype.onLeaveGroup = function() {};
 
     DockableWindow.prototype.createDelegates = function() {
 
@@ -213,6 +221,7 @@ var DockableWindow = (function() {
         this.onBoundsChanging = this.onBoundsChanging.bind(this);
         this.onClosed = this.onClosed.bind(this);
         this.onFocused = this.onFocused.bind(this);
+        this.onGroupChanged = this.onGroupChanged.bind(this);
         this.onMoveComplete = this.onMoved.bind(this);
         this.onBoundsChanged = this.onBoundsChanged.bind(this);
         this.onBoundsUpdate = this.onBoundsUpdate.bind(this);
@@ -233,6 +242,7 @@ var DockableWindow = (function() {
         this.openfinWindow.addEventListener('restored', this.onRestored);
         this.openfinWindow.addEventListener('shown', this.onRestored);
         this.openfinWindow.addEventListener('focused', this.onFocused);
+        this.openfinWindow.addEventListener('group-changed', this.onGroupChanged);
     };
 
     DockableWindow.prototype.completeInitialization = function(initialWindowBounds) {
@@ -355,6 +365,12 @@ var DockableWindow = (function() {
         || window1.y + window1.height <= window2.y || window2.y + window2.height <= window1.y)
     }
 
+    DockableWindow.prototype.onGroupChanged = function(groupEvent) {
+        if (groupEvent.reason === GroupEventReason.LEAVE && groupEvent.sourceWindowName === this.name) {
+            this.onLeaveGroup(this.name);
+        }
+    };
+
     DockableWindow.prototype.joinGroup = function(snappedPartnerWindow) {
 
         if (this.group || !this.dockableToOthers || !snappedPartnerWindow.acceptDockingConnection) {
@@ -414,7 +430,6 @@ var DockableWindow = (function() {
 
     function regroup(allWindowsToRegroup, previousWindow, currentWindow, isNewGroup) {
 
-        console.info('check if we should process ' + currentWindow.name);
         var currentWindowIndex = allWindowsToRegroup.indexOf(currentWindow);
         if (currentWindowIndex === -1) {
             return; // already traversed
@@ -422,24 +437,18 @@ var DockableWindow = (function() {
 
         // Important, get orig partnerships, before leave/join group destroys them below
         var partnerWindowNames = retrieveRelationshipsFor(currentWindow.name);
-        console.info('got orig partners for ' + currentWindow.name, partnerWindowNames);
 
         // remove this window now from pending list, we should not be visiting it again
         allWindowsToRegroup.splice(currentWindowIndex, 1);
         if (isNewGroup) {
-            console.info('new group territory .. bye bye, old group!');
             currentWindow.leaveGroup();
             if (previousWindow) {
-                console.info('new group territory .. we ain\'t the first, hello new group!');
                 currentWindow.joinGroup(previousWindow);
             }
         }
 
         for (var i = 0; i < partnerWindowNames.length; i++) {
-            console.info('checking partners: ' + partnerWindowNames[i]);
             var partnerWindow = getWindowByName(allWindowsToRegroup, partnerWindowNames[i]);
-
-            console.info('got partner windwo: ' + partnerWindow);
 
             if (partnerWindow) {
                 regroup(allWindowsToRegroup, currentWindow, partnerWindow, isNewGroup);
@@ -456,14 +465,13 @@ var DockableWindow = (function() {
         var existingDockingGroup = dockingGroup;
         var windowsToRegroup = existingDockingGroup.children.concat();
 
-        // loop, until no windows left to group ....
+        // loop, until no windows left to (re)group ....
 
         while (windowsToRegroup.length > 0) {
             var startWindow = windowsToRegroup[0];
             regroup(windowsToRegroup, null, startWindow, !existingDockingGroup);
 
             if (existingDockingGroup && startWindow.group) {
-                console.warn('orig group traversed - careful: DG still contains invalid members!', existingDockingGroup.children);
                 existingDockingGroup = null;
             }
         }
@@ -587,9 +595,6 @@ var DockingManager = (function() {
 
         instance = this;
         this.createDelegates();
-        fin.desktop.InterApplicationBus.subscribe('*', 'undock-window', function(message) {
-            instance.undockWindow(message.windowName);
-        });
         window.document.addEventListener('visibilitychange', this.onVisibilityChanged);
 
         getMonitorInfo();
@@ -659,6 +664,7 @@ var DockingManager = (function() {
         dockableWindow.onFocus = this.bringWindowOrGroupToFront;
         dockableWindow.onRestore = this.onWindowRestore;
         dockableWindow.onMinimize = this.onWindowMinimize;
+        dockableWindow.onLeaveGroup = this.undockWindow;
         windows.push(dockableWindow);
     };
 

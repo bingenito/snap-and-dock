@@ -5,20 +5,25 @@
  * Created by haseebriaz on 03/03/15.
  */
 
-var undockButton = null;
+function getUndockButton() {
+    return document.getElementById('undockButton');
+}
 
 function enableUndock(value) {
 
-    document.getElementById('undockButton').style.display = value ? 'block' : 'none';
+    var currentClasses = getUndockButton().classList;
+    if (value) {
+        currentClasses.remove('hidden');
+    } else {
+        currentClasses.add('hidden');
+    }
 }
-
 
 function onDock(message) {
 
     if (message.windowName === window.name) {
         enableUndock(true);
     }
-
 }
 
 function updateDimensions(bounds) {
@@ -34,20 +39,15 @@ function onUnDock(message) {
 
 function undock() {
 
-    fin.desktop.InterApplicationBus.publish('undock-window', {
-
-        windowName: window.name
-    });
-
+    var currentWindow = fin.desktop.Window.getCurrent();
+    currentWindow.leaveGroup();
 }
 
 fin.desktop.main(function() {
 
     document.getElementById('title').innerText = window.name;
 
-    undockButton = document.getElementById('undockButton');
-    undockButton.addEventListener('click', undock);
-    enableUndock(false);
+    getUndockButton().addEventListener('click', undock);
 
     fin.desktop.InterApplicationBus.subscribe('*', 'window-docked', onDock);
     fin.desktop.InterApplicationBus.subscribe('*', 'window-undocked', onUnDock);
