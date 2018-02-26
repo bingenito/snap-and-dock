@@ -23,7 +23,7 @@ window.addEventListener('DOMContentLoaded', function() {
         dockingManager.register(fin.desktop.Window.getCurrent(), false);
         var counter = 0;
 
-        function createChildWindow() {
+        document.getElementById('createWindows').onclick = function () {
 
             var windowOptions = {
                 name: 'child' + counter++,
@@ -38,19 +38,50 @@ window.addEventListener('DOMContentLoaded', function() {
                 autoShow: true
             };
 
-            var dw = new fin.desktop.Window(
+            var openfinWindow = new fin.desktop.Window(
                 windowOptions,
                 function() {
-                    dockingManager.register(dw);
+                    dockingManager.register(openfinWindow);
                 }
             );
 
             // To test using DockingWindow to create the OpenFin window
             //
             // dockingManager.register(windowOptions);
+
+            openfinWindow.addEventListener('group-changed', onGroupChanged);
+        };
+
+        function onGroupChanged(groupEvent) {
+
+            // leaving is simple ... if member of 'nothing', then this window is leaving
+            if (groupEvent.memberOf === GroupEventMemberOf.NOTHING) {
+                console.log('group-changed event: ' + groupEvent.name + ' left group');
+                return;
+            }
+
+            // joining is a little more complicated ...
+            // if sourceWindowName is the same as name, that is a primary join event
+            // but at group setup, the first window is only a 'target' of a join
+            // (for the 2 setup events, the target group has just those 2 members)
+            if (groupEvent.reason === GroupEventReason.JOIN) {
+                if (groupEvent.sourceWindowName === groupEvent.name ||
+                    groupEvent.targetGroup.length === 2 &&
+                    groupEvent.targetWindowName  === groupEvent.name) {
+                    console.log('group-changed event: ' + groupEvent.name + ' joined group');
+                }
+            }
         }
 
-        document.getElementById('createWindows').onclick = createChildWindow;
+        fin.desktop.InterApplicationBus.subscribe('*', 'window-docked', function(message) {
+            console.log('window-docked subscription: ' + message.windowName + ' joined group');
+        });
+
+        fin.desktop.InterApplicationBus.subscribe('*', 'window-undocked', function(message) {
+            console.log('window-undocked subscription: ' + message.windowName + ' left group');
+        });
+
+        // bus-based handling for external java application docking
 
         fin.desktop.InterApplicationBus.subscribe('*', 'register-docking-window', function(message) {
             var appUuid = message.applicationUuid;
@@ -60,16 +91,7 @@ window.addEventListener('DOMContentLoaded', function() {
             dockingManager.register(javaWindow);
         });
 
-        fin.desktop.InterApplicationBus.subscribe('*', 'window-docked', function(message) {
-            console.log('Window ' + message.windowName + ' joined group');
-        });
-
-        fin.desktop.InterApplicationBus.subscribe('*', 'window-undocked', function(message) {
-            console.log('Window ' + message.windowName + ' left group');
-        });
-
         fin.desktop.InterApplicationBus.publish("status-update", {status: 'ready'});
-
     });
 
 });

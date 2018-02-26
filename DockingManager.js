@@ -12,6 +12,12 @@ var GroupEventReason = {
     MERGE: 'merge'
 };
 
+var GroupEventMemberOf = {
+    NOTHING: 'nothing',
+    SOURCE: 'source',
+    TARGET: 'target'
+};
+
 var monitors = [];
 function getMonitorInfo(){
 
@@ -386,36 +392,28 @@ var DockableWindow = (function() {
             }
         }
 
-        if (!snappedPartnerWindow.group) {
-            if (this.group){
+        if (this.group && !snappedPartnerWindow.group) {
 
-                snappedPartnerWindow.joinGroup(this);
-                return;
-            } else {
-
-                var dockingGroup = new DockingGroup();
-                dockingGroup.add(snappedPartnerWindow);
-                dockingGroup.add(this);
-            }
-        } else {
-
-            snappedPartnerWindow.group.add(this);
+            snappedPartnerWindow.joinGroup(this);
+            return;
         }
 
+        // openfin operations: frame and grouping
+        // if both ungrouped, this will set up the initial group with both windows as members
         this.openfinWindow.enableFrame();
         snappedPartnerWindow.openfinWindow.enableFrame();
-
         this.openfinWindow.joinGroup(snappedPartnerWindow.openfinWindow);
 
-        fin.desktop.InterApplicationBus.publish('window-docked', {
+        if (!this.group && !snappedPartnerWindow.group) {
 
-            windowName: this.name
-        });
+            // both ungrouped .. set partner up with new group
+            var dockingGroup = new DockingGroup();
+            dockingGroup.add(snappedPartnerWindow);
+            fin.desktop.InterApplicationBus.publish('window-docked', {windowName: snappedPartnerWindow.name});
+        }
 
-        fin.desktop.InterApplicationBus.publish('window-docked', {
-
-            windowName: snappedPartnerWindow.name
-        });
+        snappedPartnerWindow.group.add(this);
+        fin.desktop.InterApplicationBus.publish('window-docked', {windowName: this.name});
 
         createRelationshipsBetween(this.name, snappedPartnerWindow.name);
     };
