@@ -1,5 +1,5 @@
-/* globals fin, DockingManager */
-'use strict';
+/* globals fin */
+import { DockingManager, GroupEventReason, GroupEventMemberOf } from './DockingManager.js';
 
 /**
  * Created by haseebriaz on 03/03/15.

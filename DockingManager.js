@@ -5,14 +5,14 @@
  * Created by haseebriaz on 03/03/15.
  */
 
-var GroupEventReason = {
+const GroupEventReason = {
     DISBAND: 'disband',
     JOIN: 'join',
     LEAVE: 'leave',
     MERGE: 'merge'
 };
 
-var GroupEventMemberOf = {
+const GroupEventMemberOf = {
     NOTHING: 'nothing',
     SOURCE: 'source',
     TARGET: 'target'
@@ -39,7 +39,9 @@ function onMonitorInfo(info){
 
 function applyOptions(instance, options) {
 
-    if (!options) return;
+    if (!options) {
+        return;
+    }
 
     // 'range' is the distance between windows at which snapping applies
     if (!isNaN(Number.parseInt(options.range)) && options.range >= 0) {
@@ -367,8 +369,12 @@ var DockableWindow = (function() {
 
         // check right edge position of first window is to the left of left edge of second window, and so on ..
         // comparison is <= as (xpos + width) is one pixel to the right of the window
-        return  !(window1.x + window1.width <= window2.x || window2.x + window2.width <= window1.x
-        || window1.y + window1.height <= window2.y || window2.y + window2.height <= window1.y)
+        return  !(
+            window1.x + window1.width <= window2.x ||
+            window2.x + window2.width <= window1.x ||
+            window1.y + window1.height <= window2.y ||
+            window2.y + window2.height <= window1.y
+        );
     }
 
     DockableWindow.prototype.onGroupChanged = function(groupEvent) {
@@ -975,4 +981,4 @@ var DockingManager = (function() {
 
 })();
 
-
+export { DockingManager, GroupEventReason, GroupEventMemberOf };

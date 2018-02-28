@@ -4,7 +4,9 @@
   "description": "a small framework for snap-to and docking of openfin windows",
   "main": "Docking.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "rollup Docking.js --o DockingManager-rolledup.js --f iife",
+    "test": "mocha --require babel-core/register ./test/testSetup.js ./test/**/*-test.js",
+    "server": "http-server -c-1 -p 8888"
   },
   "repository": {
     "type": "git",
@@ -17,6 +19,9 @@
   },
   "homepage": "https://github.com/openfin/snap-and-dock",
   "devDependencies": {
+    "babel": "6.23.0",
+    "babel-core": "6.26.0",
+    "babel-preset-es2015": "6.24.1",
     "grunt": "^0.4.5",
     "grunt-cli": "^0.1.13",
     "grunt-contrib-jshint": "^0.10.0",
@@ -24,8 +29,11 @@
     "grunt-html": "^3.0.0",
     "grunt-jsbeautifier": "^0.2.7",
     "grunt-prettify": "^0.4.0",
-    "jshint-stylish": "^1.0.0",
+    "http-server": "^0.11.1",
     "jshint": "^2.6.3",
-    "load-grunt-tasks": "^3.1.0"
+    "jshint-stylish": "^1.0.0",
+    "load-grunt-tasks": "^3.1.0",
+    "mocha": "5.0.1",
+    "rollup": "0.56.3"
   }
 }
