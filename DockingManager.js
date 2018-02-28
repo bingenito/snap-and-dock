@@ -593,7 +593,6 @@ var DockingManager = (function() {
 
         instance = this;
         this.createDelegates();
-        window.document.addEventListener('visibilitychange', this.onVisibilityChanged);
 
         getMonitorInfo();
     }
@@ -621,7 +620,6 @@ var DockingManager = (function() {
         this.onWindowRestore = this.onWindowRestore.bind(this);
         this.onWindowMinimize = this.onWindowMinimize.bind(this);
         this.dockAllSnappedWindows = this.dockAllSnappedWindows.bind(this);
-        this.onVisibilityChanged = this.onVisibilityChanged.bind(this);
     };
 
     DockingManager.prototype.undockWindow = function(windowName) {
@@ -680,18 +678,6 @@ var DockingManager = (function() {
                 removedDockableWindow.leaveGroup();
             }
         }
-    };
-
-    DockingManager.prototype.onVisibilityChanged = function() {
-
-        if (document.hidden) {
-
-            this.onWindowMinimize();
-        } else {
-
-            this.onWindowRestore();
-        }
-
     };
 
     DockingManager.prototype.onWindowClose = function(event) {
