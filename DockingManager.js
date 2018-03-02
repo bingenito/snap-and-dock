@@ -593,19 +593,19 @@ var DockingManager = (function() {
 
     function DockingManager() {
 
-        if (instance) {
-            throw new Error('Only one instance of DockingManager is allowed. Use DockingManager.getInstance() to get the instance.');
-        }
-
-        instance = this;
         this.createDelegates();
-
         getMonitorInfo();
     }
 
     DockingManager.getInstance = function() {
 
-        return instance ? instance : new DockingManager();
+        // Deprecated:
+        //     Use app framework or similar to manage single instance and access to DockingManager instance
+        if (!instance) {
+            instance = new DockingManager();
+        }
+
+        return instance;
     };
 
     DockingManager.prototype.range = 40;
@@ -634,7 +634,7 @@ var DockingManager = (function() {
 
             if (windows[i].name === windowName) {
 
-                windows[i].leaveGroup(true);
+                windows[i].leaveGroup();
             }
         }
     };
@@ -681,7 +681,7 @@ var DockingManager = (function() {
             if (windows[i].name === windowName) {
                 var removedDockableWindow = windows.splice(i, 1)[0];
                 // purge from DockableGroup etc., otherwise it will still influence other DockableWindows
-                removedDockableWindow.leaveGroup();
+                removedDockableWindow.leaveGroup(true);
             }
         }
     };
