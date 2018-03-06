@@ -272,7 +272,7 @@ var DockableWindow = (function() {
                 continue;
             }
 
-            this.joinGroup(potentialPartnerWindow);
+            this.joinDockingGroup(potentialPartnerWindow);
         }
     };
 
@@ -383,7 +383,7 @@ var DockableWindow = (function() {
         }
     };
 
-    DockableWindow.prototype.joinGroup = function(snappedPartnerWindow) {
+    DockableWindow.prototype.joinDockingGroup = function(snappedPartnerWindow) {
 
         if (this.group || !this.dockableToOthers || !snappedPartnerWindow.acceptDockingConnection) {
             return;
@@ -400,7 +400,7 @@ var DockableWindow = (function() {
 
         if (this.group && !snappedPartnerWindow.group) {
 
-            snappedPartnerWindow.joinGroup(this);
+            snappedPartnerWindow.joinDockingGroup(this);
             return;
         }
 
@@ -432,48 +432,64 @@ var DockableWindow = (function() {
         }
     }
 
-    function regroup(allWindowsToRegroup, previousWindow, currentWindow, isNewGroup) {
+    async function regroup(allWindowsToRegroup, previousWindow, currentWindow, isNewGroup) {
+        // console.warn(`Regroup ${currentWindow.name}`);
 
-        var currentWindowIndex = allWindowsToRegroup.indexOf(currentWindow);
+        const currentWindowIndex = allWindowsToRegroup.indexOf(currentWindow);
         if (currentWindowIndex === -1) {
             return; // already traversed
         }
 
         // Important, get orig partnerships, before leave/join group destroys them below
-        var partnerWindowNames = retrieveRelationshipsFor(currentWindow.name);
+        const partnerWindowNames = retrieveRelationshipsFor(currentWindow.name);
 
         // remove this window now from pending list, we should not be visiting it again
         allWindowsToRegroup.splice(currentWindowIndex, 1);
+
+        // if this is a lone window, then leave group
+        // do not trigger any additional split-checking, normal checks for off-screen etc.
+        if (!previousWindow && partnerWindowNames.length === 0) {
+            currentWindow.leaveDockingGroup();
+            return;
+        }
+
         if (isNewGroup) {
-            currentWindow.leaveGroup();
+            await currentWindow.leaveDockingGroup(false);
             if (previousWindow) {
-                currentWindow.joinGroup(previousWindow);
+                // join previous partner window in new group
+                currentWindow.joinDockingGroup(previousWindow);
             }
         }
 
-        for (var i = 0; i < partnerWindowNames.length; i++) {
-            var partnerWindow = getWindowByName(allWindowsToRegroup, partnerWindowNames[i]);
+        await handlePartners();
 
-            if (partnerWindow) {
-                regroup(allWindowsToRegroup, currentWindow, partnerWindow, isNewGroup);
+        async function handlePartners() {
+            // console.warn(`handlePartners ${currentWindow.name}, ${partnerWindowNames}`);
+            for (let i = 0; i < partnerWindowNames.length; i++) {
+                const partnerWindow = getWindowByName(allWindowsToRegroup, partnerWindowNames[i]);
+
+                if (partnerWindow) {
+                    await regroup(allWindowsToRegroup, currentWindow, partnerWindow, isNewGroup);
+                }
             }
         }
     }
 
-    function checkForSplitGroup(dockingGroup) {
-
+    async function checkForSplitGroup(dockingGroup) {
         if (dockingGroup.children.length < 2) {
             return;
         }
 
-        var existingDockingGroup = dockingGroup;
-        var windowsToRegroup = existingDockingGroup.children.concat();
+        // console.warn(`checkForSplitGroup ${dockingGroup.children.length}`);
+
+        let existingDockingGroup = dockingGroup;
+        let windowsToRegroup = existingDockingGroup.children.concat();
 
         // loop, until no windows left to (re)group ....
 
         while (windowsToRegroup.length > 0) {
-            var startWindow = windowsToRegroup[0];
-            regroup(windowsToRegroup, null, startWindow, !existingDockingGroup);
+            const startWindow = windowsToRegroup[0];
+            await regroup(windowsToRegroup, null, startWindow, !existingDockingGroup);
 
             if (existingDockingGroup && startWindow.group) {
                 existingDockingGroup = null;
@@ -481,18 +497,25 @@ var DockableWindow = (function() {
         }
     }
 
-    DockableWindow.prototype.leaveGroup = function(isInitiator) {
+    DockableWindow.prototype.leaveDockingGroup = async function(isInitiator) {
 
         var group = this.group;
         if (!group) {
             return;
         }
 
-        // detach window from OpenFin runtime group
-        this.openfinWindow.disableFrame();
-        this.openfinWindow.leaveGroup();
-
+        // disconnect from docking group as soon as possible to avoid
+        // any interference in leaveGroup handling
         group.remove(this);
+
+        const openfinWindow = this.openfinWindow;
+        openfinWindow.disableFrame();
+        // detach window from OpenFin runtime group
+        await new Promise(function(resolve) {
+            openfinWindow.leaveGroup(function () {
+                resolve();
+            });
+        });
 
         fin.desktop.InterApplicationBus.publish('window-undocked', {
 
@@ -510,7 +533,7 @@ var DockableWindow = (function() {
 
         if (group.children.length === 1) {
 
-            group.children[0].leaveGroup();
+            group.children[0].leaveDockingGroup();
         }
 
         if (group.children.length > 0 && !this.isGroupInView(group)){
@@ -634,7 +657,7 @@ var DockingManager = (function() {
 
             if (windows[i].name === windowName) {
 
-                windows[i].leaveGroup();
+                windows[i].leaveDockingGroup(true);
             }
         }
     };
@@ -642,7 +665,7 @@ var DockingManager = (function() {
     DockingManager.prototype.undockAll = function() {
 
         for (var i = 0; i < windows.length; i++) {
-            windows[i].leaveGroup();
+            windows[i].leaveDockingGroup();
         }
     };
 
@@ -681,7 +704,7 @@ var DockingManager = (function() {
             if (windows[i].name === windowName) {
                 var removedDockableWindow = windows.splice(i, 1)[0];
                 // purge from DockableGroup etc., otherwise it will still influence other DockableWindows
-                removedDockableWindow.leaveGroup(true);
+                removedDockableWindow.leaveDockingGroup(true);
             }
         }
     };
@@ -974,7 +997,7 @@ var DockingManager = (function() {
 
         window1.setOpacity(1);
         windowGroup.setOpacity(1);
-        window1.joinGroup(windowGroup, window1.onDock);
+        window1.joinDockingGroup(windowGroup, window1.onDock);
     };
 
     return DockingManager;
