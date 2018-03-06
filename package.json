@@ -5,8 +5,8 @@
   "main": "Docking.js",
   "scripts": {
     "build": "rollup Docking.js --o DockingManager-rolledup.js --f iife",
-    "test": "mocha --require babel-core/register ./test/testSetup.js ./test/**/*-test.js",
-    "server": "http-server -c-1 -p 8888"
+    "test": "mocha --require babel-core/register --require babel-polyfill ./test/testSetup.js ./test/**/*-test.js",
+    "start": "http-server -c-1 -p 8888"
   },
   "repository": {
     "type": "git",
@@ -21,7 +21,10 @@
   "devDependencies": {
     "babel": "6.23.0",
     "babel-core": "6.26.0",
+    "babel-polyfill": "^6.26.0",
     "babel-preset-es2015": "6.24.1",
+    "babel-preset-es2016": "^6.24.1",
+    "babel-preset-es2017": "^6.24.1",
     "grunt": "^0.4.5",
     "grunt-cli": "^0.1.13",
     "grunt-contrib-jshint": "^0.10.0",

@@ -34,7 +34,7 @@ The intention of this repo is to provide developers a general (yet uniform) appr
 
 * If you do not have the OpenFin CLI installer, run ```npm install -g openfin-cli```
 
-* Run a local web server with ```npm run server```
+* Run a local web server with ```npm start```
 
 ### .. using runtime 9.x+ (chromium 61+)
 
@@ -57,7 +57,7 @@ The intention of this repo is to provide developers a general (yet uniform) appr
 ## From Main Window
 
 1. Add DockingManager.js in your project
-2. Create new instance of DockingManager, like ```var dockingManager = new DockingManager();```
+2. Create new instance of DockingManager, like ```const dockingManager = new DockingManager();```
 3. Register instances of Openfin Windows (fin.desktop.Window) with DockingManager: ```dockingManager.register(fin.desktop.Window.getCurrent());```
 4. If you want a window to not dock to others, but only others dock to it you can pass false as the second argument of dockingManager.register:
 ```dockingManager.register(fin.desktop.Window.getCurrent(), false)```
@@ -69,10 +69,13 @@ The intention of this repo is to provide developers a general (yet uniform) appr
 ## From Child Window
 
  1. You can subscribe to docking events (window-docked, window-undocked) to get notified when a child window gets docked to another window
-e.g. ```fin.desktop.InterApplicationBus.subscribe("*", "window-docked", onDock);
-     fin.desktop.InterApplicationBus.subscribe("*", "window-undocked", onUnDock);```
+e.g. 
+    ```
+    fin.desktop.InterApplicationBus.subscribe("*", "window-docked", onDock);
+    fin.desktop.InterApplicationBus.subscribe("*", "window-undocked", onUnDock);
+    ```
 
-     Since these messages are sent as a broadcast to all windows, you will need to filter these by windowName key, which is sent as part of the message
+    Since these messages are sent as a broadcast to all windows, you will need to filter these by windowName key, which is sent as part of the message
 
  2. Or to avoid mixing external bus channels in with your application messaging, you may simply listen to the OpenFin Window 'group-changed' event - a full example is included in ```Docking.js```
 
