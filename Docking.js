@@ -66,7 +66,6 @@ function createAndRegister(windowNameSuffix) {
         defaultHeight: 150,
         defaultTop: (screen.availHeight - 200) / 2,
         defaultLeft: (screen.availWidth - 150) / 2,
-        frame: false,
         autoShow: true
     };
 

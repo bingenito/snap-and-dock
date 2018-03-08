@@ -241,10 +241,8 @@ var DockableWindow = (function() {
 
         // OpenFin window close triggers a 'hidden' event, so do not tie minimize action to this event
         this.openfinWindow.getBounds(this.completeInitialization);
-        this.openfinWindow.disableFrame();
-        this.openfinWindow.addEventListener('disabled-frame-bounds-changing', this.onBoundsChanging);
-        this.openfinWindow.addEventListener('disabled-frame-bounds-changed', this.onBoundsChanged);
-        this.openfinWindow.addEventListener('bounds-changed', this.onBoundsUpdate);
+        this.openfinWindow.addEventListener('bounds-changing', this.onBoundsChanging);
+        this.openfinWindow.addEventListener('bounds-changed', this.onBoundsChanged);
         this.openfinWindow.addEventListener('closed', this.onClosed);
         this.openfinWindow.addEventListener('minimized', this.onMinimized);
         this.openfinWindow.addEventListener('restored', this.onRestored);
@@ -356,13 +354,13 @@ var DockableWindow = (function() {
         this.width = width ? width : this.width;
         this.height = height ? height : this.height;
 
-        this.openfinWindow.removeEventListener('disabled-frame-bounds-changing', this.onBoundsChanging);
+        this.openfinWindow.removeEventListener('bounds-changing', this.onBoundsChanging);
         this.openfinWindow.setBounds(x, y, this.width, this.height, this.onMoved);
     };
 
     DockableWindow.prototype.onMoved = function() {
 
-        this.openfinWindow.addEventListener('disabled-frame-bounds-changing', this.onBoundsChanging);
+        this.openfinWindow.addEventListener('bounds-changing', this.onBoundsChanging);
     };
 
     function intersect(window1, window2){
@@ -406,8 +404,6 @@ var DockableWindow = (function() {
 
         // openfin operations: frame and grouping
         // if both ungrouped, this will set up the initial group with both windows as members
-        this.openfinWindow.enableFrame();
-        snappedPartnerWindow.openfinWindow.enableFrame();
         this.openfinWindow.joinGroup(snappedPartnerWindow.openfinWindow);
 
         if (!this.group && !snappedPartnerWindow.group) {
@@ -509,7 +505,6 @@ var DockableWindow = (function() {
         group.remove(this);
 
         const openfinWindow = this.openfinWindow;
-        openfinWindow.disableFrame();
         // detach window from OpenFin runtime group
         await new Promise(function(resolve) {
             openfinWindow.leaveGroup(function () {
